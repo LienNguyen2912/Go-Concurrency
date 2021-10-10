@@ -106,7 +106,7 @@ Here is the output</br>
 ![send_blocking](https://user-images.githubusercontent.com/73010204/136654363-1c35f332-4c4a-4a4f-9cf2-804ec2d6a31b.png)</br>
 We can visualize how it worked as below.</br>
 ![send_blocking_visual](https://user-images.githubusercontent.com/73010204/136654364-9c6131e4-d412-4d5a-b1ea-410a3a36336d.png)</br>
-When there is **other** goroutine receives that data, the send statement is unblocked. Yes, I mean it must be **other** goroutine.
+When there is **other** goroutine receives that data, the send statement is unblocked.
 ```sh
 package main
 
@@ -127,7 +127,7 @@ func main() {
 }
 ```
 ![send_blocking2](https://user-images.githubusercontent.com/73010204/136654367-a84052c9-3eaa-4e77-af7e-d93a7503ccd9.png)</br>
-Visualize it (the gap distance between them means nothing)<br/>
+Visualize it (gap distances mean nothing)<br/>
 ![send_blocking_visual2](https://user-images.githubusercontent.com/73010204/136654365-cd12f2a5-a581-48a4-af78-8023cf897471.png)<br/>
 As you see, the main goroutine is blocked in read statement also for waiting data from the channel. That's why without Sleep vocation, _"Send data done"_ text was printed out.</br>
 Let 's see how the control is blocked in the read statement by another example.
