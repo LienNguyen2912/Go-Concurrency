@@ -293,7 +293,26 @@ func main() {
 }
 ```
 ![bufferedChannel_len_capacity](https://user-images.githubusercontent.com/73010204/136684980-5d5c8f1b-741d-4fe7-b0ad-e7e9529c75be.PNG)</br>
+## Max buffer size
+[refer][data1]
+```sh
+func makechan(t *chantype, size int) *hchan {
+	elem := t.elem
 
+	// compiler checks this but be safe.
+	if elem.size >= 1<<16 {
+		throw("makechan: invalid channel element type")
+	}
+	if hchanSize%maxAlign != 0 || elem.align > maxAlign {
+		throw("makechan: bad alignment")
+	}
+
+	mem, overflow := math.MulUintptr(elem.size, uintptr(size))
+	if overflow || mem > maxAlloc-hchanSize || size < 0 {
+		panic(plainError("makechan: size out of range"))
+	}
+```
+Max buffer size is depended on OS compiler.
 ## WaitGroup
 WaitGroup is a way to inform a routine that all of its subroutines are completed so it can further proceed.
 Without WaitGroup, we can use Sleep or receive/send statement for blocking, but sometimes it may not make sense. WaitGroup can be a solution.
@@ -412,5 +431,86 @@ Your result may vary.</br>
 Try to increase the buffered channel capacity, and increase the number of workers in pools, you will see the total time are reduced!
 
 ## Select
+Select is a statement which works like a switch but for channels
+- _select_ picks the first case which is ready to execute. 
+- If multiple case are avaiable then it randomly picks one to process. 
+- If none of cases are ready, the statement blocks until one becomes available.
+- _default_ case are executed if none of the channels are ready.
+- Often implement a timeout case
+
+Either none of _case_ are ready or none of _case_ are specified will cause _select_ blocks forever and hence deadlock will happen. 
+```sh
+package main
+
+func main() {
+	select {
+	}
+}
+```
+```sh
+package main
+
+func main() {  
+    ch := make(chan string)
+    select {
+    case <-ch:
+    }
+}
+```
+![select_Dead](https://user-images.githubusercontent.com/73010204/136912427-23f111fb-a7f1-4494-a6f8-1eeef3da0f01.PNG)</br>
+But with_default_, _select_ does not block anymore
+```sh
+package main
+
+func main() {
+	select {
+	}
+}
+```
+![select_default](https://user-images.githubusercontent.com/73010204/136912431-73e19bcd-eceb-4bf5-a686-79191fcbc8ca.PNG)</br>
+Another program with timeout case
+```sh
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func pinger(ping chan string) {
+	time.Sleep(100 * time.Millisecond)
+	ping <- "ping"
+}
+func ponger(pong chan string) {
+	time.Sleep(300 * time.Millisecond)
+	pong <- "pong"
+}
+
+func main() {
+	ping := make(chan string)
+	pong := make(chan string)
+	timeout := time.After(500 * time.Millisecond)
+	go pinger(ping)
+	go ponger(pong)
+	for {
+		select {
+		case s1 := <-ping:
+			fmt.Println(s1)
+		case s2 := <-pong:
+			fmt.Println(s2)
+		case <-timeout:
+			fmt.Printf("Time out!")
+			return
+		default:
+			fmt.Print("...\n")
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}
+```
+![select_pingpong](https://user-images.githubusercontent.com/73010204/136912434-ab907d7a-9ae6-4f48-87ab-1fc514f3590b.PNG)</br>
 
 ## Mutex
+[//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
+
+[data1]: <https://github.com/golang/go/blob/release-branch.go1.14/src/runtime/chan.go#L71>
