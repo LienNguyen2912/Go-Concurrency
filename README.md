@@ -458,17 +458,24 @@ func main() {
 }
 ```
 ![select_Dead](https://user-images.githubusercontent.com/73010204/136912427-23f111fb-a7f1-4494-a6f8-1eeef3da0f01.PNG)</br>
-But with_default_, _select_ does not block anymore
+But with _default_ , _select_ does not block anymore
 ```sh
 package main
 
+import (
+	"fmt"
+)
+
 func main() {
 	select {
+	    default:
+	        fmt.Println("Default executed")
+	    
 	}
 }
 ```
 ![select_default](https://user-images.githubusercontent.com/73010204/136912431-73e19bcd-eceb-4bf5-a686-79191fcbc8ca.PNG)</br>
-Another program with timeout case
+**Another program with timeout case**
 ```sh
 package main
 
@@ -511,6 +518,133 @@ func main() {
 ![select_pingpong](https://user-images.githubusercontent.com/73010204/136912434-ab907d7a-9ae6-4f48-87ab-1fc514f3590b.PNG)</br>
 
 ## Mutex
+- A Mutex involves avoiding race condition. We set _Lock()_ before using a shared resource and _Unlock()_ after using it.
+- Any code presented between Lock and Unlock will be executed by just one Goroutine only.
+
+Compare these pgrogram with and without using Mutex
+```sh
+package main  
+import (  
+    "fmt"
+    "math/rand"
+    "time"
+    )
+func pinger()  {
+    for i := 0; i < 10; i++ {
+       fmt.Print("ping ")
+       time.Sleep(time.Millisecond * time.Duration(rand.Intn(250)))
+    }
+}
+func ponger()  {
+    for i := 0; i < 10; i++ {
+        fmt.Print("pong ")
+        time.Sleep(time.Millisecond * time.Duration(rand.Intn(250)))
+    }
+}
+func main() {  
+    go pinger()
+    go ponger()
+    time.Sleep(3 * time.Second)
+}
+```
+The program will print ping and pong unpredictably together each time executing</br>
+![1MoMutex1](https://user-images.githubusercontent.com/73010204/137438431-8a8fde04-0f14-4753-bd98-e508d9230bbd.PNG)</br>
+But with using mutex the output becomes stable, one goroutine finishes then the next starts executing.
+```sh
+package main  
+import (  
+    "fmt"
+    "math/rand"
+    "time"
+    "sync"
+    )
+func pinger(m *sync.Mutex)  {
+    m.Lock()
+    for i := 0; i < 10; i++ {
+        fmt.Print("ping ")
+        time.Sleep(time.Millisecond * time.Duration(rand.Intn(250)))
+    }
+    m.Unlock()
+}
+func ponger(m *sync.Mutex)  {
+    m.Lock()
+    for i := 0; i < 10; i++ {
+        fmt.Print("pong ")
+        time.Sleep(time.Millisecond * time.Duration(rand.Intn(250)))
+    }
+    m.Unlock()
+}
+func main() {  
+    var m sync.Mutex
+    go pinger(&m)
+    go ponger(&m)
+    time.Sleep(3 * time.Second)
+}
+```
+The ouput may vary the order executation of pinger or ponger goroutine</br>
+![1Mutex1](https://user-images.githubusercontent.com/73010204/137438532-b7c37a8b-2d71-4bea-865b-706ac964932d.PNG)
+
+## Avoid race condition by mutex
+Let's try without mutex first
+```sh
+package main  
+import (  
+    "fmt"
+    "sync"
+    )
+var balance int = 9999
+func withdraw(wg *sync.WaitGroup) {  
+    balance -= 1
+    wg.Done()   
+}
+func main() {  
+    var w sync.WaitGroup
+    for i := 0; i < 1000; i++ {
+        w.Add(1)        
+        go withdraw(&w)
+    }
+    w.Wait()
+    fmt.Println("final balance: $", balance)
+}
+```
+Consider running the example a few times and to see how unpredictable the outcome is. Please notice that the race condition will not occur in the IDE online environment.</br>
+Next, let's try mutex
+```sh
+package main  
+import (  
+    "fmt"
+    "sync"
+    )
+var balance int = 9999
+func withdraw(wg *sync.WaitGroup, m *sync.Mutex) {  
+    m.Lock()
+    balance -= 1
+    m.Unlock()
+    wg.Done()   
+}
+func main() {  
+    var w sync.WaitGroup
+    var m sync.Mutex
+    for i := 0; i <1000; i++ {
+        w.Add(1)        
+        go withdraw(&w, &m)
+    }
+    w.Wait()
+    fmt.Println("final balance: $", balance)
+}
+```
+It will always print</br>
+![mutexDolar](https://user-images.githubusercontent.com/73010204/137439574-ce3a476f-42f6-48e2-ae21-f3f3dd0f7b65.PNG)</br>
+That's it. :D
+# Summary
+We have discussed about Go Concurrency
+- Goroutines
+- Channels
+- Buffered Channels
+- Goroutine Pools
+- Select
+- Mutex
+
 [//]: # (These are reference links used in the body of this note and get stripped out when the markdown processor does its job. There is no need to format nicely because it shouldn't be seen. Thanks SO - http://stackoverflow.com/questions/4823468/store-comments-in-markdown-syntax)
 
 [data1]: <https://github.com/golang/go/blob/release-branch.go1.14/src/runtime/chan.go#L71>
